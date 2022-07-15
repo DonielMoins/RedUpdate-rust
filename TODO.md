@@ -1,9 +1,9 @@
 # TODO
 
-- Get all keys on redis server on launch and send them using ```'db_update:'```.
+- [x] Get all keys on redis server on launch and send them using ```'db_update:'```.
 
-- Make something to stress test everything.
+- [ ] Make something to stress test everything.
 
-- Rest API.
+- [ ] Rest API.
 
-- Better error handling.
+- [ ] Better error handling.

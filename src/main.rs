@@ -15,7 +15,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 extern crate redis;
-use redis::Commands;
+use redis::{AsyncCommands, AsyncIter, Commands};
 type Db = Arc<Mutex<HashMap<String, Bytes>>>;
 
 #[tokio::main]
@@ -27,13 +27,13 @@ async fn main() {
     let tx: Sender<String> = broadcast::channel(512).0;
 
     println!("Started!");
-    let _KEYEVENT_HANDLER = tokio::spawn(get_match(db.clone(), tx.clone()));
-    let _KEYEVENT_DB_HANDLER = tokio::spawn(key_value_change_handler(
+    let _keyevent_handler = tokio::spawn(get_match(db.clone(), tx.clone()));
+    let _keyevent_db_handler = tokio::spawn(key_value_change_handler(
         db.clone(),
         tx.subscribe(),
         tx.clone(),
     ));
-    let _DEBUG_PRINTCLIENT = task::spawn(print_db_loop(db.clone(), tx.subscribe())).await;
+    let _debug_printclient = task::spawn(print_db_loop(db.clone(), tx.subscribe())).await;
 }
 
 async fn create_client() -> redis::RedisResult<redis::Connection> {
@@ -84,6 +84,15 @@ async fn key_value_change_handler(
 ) -> redis::RedisResult<()> {
     let mut interval = time::interval(Duration::from_millis(20));
     let mut con = create_client().await?;
+    let mut start_keys: Vec<_> = vec![];
+    con.scan()
+        .and_then(|keys: redis::Iter<String>| Ok(start_keys = keys.collect()));
+    for key in start_keys {
+        let val: Option<String> = con.get(key.clone())?;
+        let mut db = db.lock().await;
+        db.insert(key.to_string(), Bytes::from(val.clone().unwrap()));
+    }
+    tx.send("db_ready".to_string());
     loop {
         interval.tick().await;
         if !rx.is_empty() {
