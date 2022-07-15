@@ -4,6 +4,6 @@
 
 - [ ] Make something to stress test everything.
 
-- [ ] Rest API.
+- [x] Rest API.
 
 - [ ] Better error handling.

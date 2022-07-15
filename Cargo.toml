@@ -12,6 +12,8 @@ async-std = { version = "1.12.0", features = [
     "async-attributes",
 ] }
 bytes = "1.1.0"
+warp = "0.3.1"
+serde_json = "*"
 #log = { version = "0.4.17", features = ["std", "serde", "kv_unstable", "kv_unstable_serde"] }
 redis = { git = "https://github.com/mitsuhiko/redis-rs.git", features = [
     "connection-manager",
@@ -19,4 +21,10 @@ redis = { git = "https://github.com/mitsuhiko/redis-rs.git", features = [
     "connection-manager",
     "tokio-native-tls-comp",
 ] }
-tokio = { version = "1.19.2", features = ["full", "winapi", "tracing", "sync"] }
+tokio = { version = "1.19.2", features = [
+    "full",
+    "winapi",
+    "tracing",
+    "sync",
+    "macros",
+] }

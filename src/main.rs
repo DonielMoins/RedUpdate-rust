@@ -4,19 +4,19 @@
 // use async_std::prelude::*;
 // use std::future::Future;
 
-use bytes::Bytes;
-
 use tokio::sync::broadcast::{Receiver, Sender};
 use tokio::sync::{broadcast, Mutex};
 use tokio::{task, time};
+use warp::http::Error;
+use warp::Filter;
 
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
 extern crate redis;
-use redis::{AsyncCommands, AsyncIter, Commands};
-type Db = Arc<Mutex<HashMap<String, Bytes>>>;
+use redis::Commands;
+type Db = Arc<Mutex<HashMap<String, String>>>;
 
 #[tokio::main]
 async fn main() {
@@ -33,7 +33,23 @@ async fn main() {
         tx.subscribe(),
         tx.clone(),
     ));
+
+    let _webserver = tokio::spawn(restful_redis(db.clone()));
+
+    // Always last to run.
     let _debug_printclient = task::spawn(print_db_loop(db.clone(), tx.subscribe())).await;
+}
+
+async fn restful_redis(db: Db) -> Result<(), Error> {
+    // Match any request and return hello world!
+    let routes = warp::any().map(move || {
+        // let db = db.clone().blocking_lock().values().collect();
+        let json = serde_json::json!((&db.clone().try_lock().as_deref().unwrap()));
+        format!("{}", json.to_string())
+    });
+
+    warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
+    Ok(())
 }
 
 async fn create_client() -> redis::RedisResult<redis::Connection> {
@@ -65,7 +81,7 @@ async fn get_match(db: Db, tx: Sender<String>) -> redis::RedisResult<()> {
         let payload: String = msg.get_payload()?;
         // println!("channel '{}': {}", msg.get_channel_name(), payload);
         let mut db = db.lock().await;
-        db.insert(payload.clone(), Bytes::from("NULL_VALUE"));
+        db.insert(payload.clone(), "NULL_VALUE".to_string());
         tx.send(String::from(format!(
             "{}{}",
             "db_update:",
@@ -90,7 +106,7 @@ async fn key_value_change_handler(
     for key in start_keys {
         let val: Option<String> = con.get(key.clone())?;
         let mut db = db.lock().await;
-        db.insert(key.to_string(), Bytes::from(val.clone().unwrap()));
+        db.insert(key.to_string(), val.clone().unwrap().to_string());
     }
     tx.send("db_ready".to_string());
     loop {
@@ -102,7 +118,7 @@ async fn key_value_change_handler(
                 let key = msg.clone().replace("db_update:", "");
                 let val: Option<String> = con.get(key.clone())?;
                 let mut db = db.lock().await;
-                db.insert(key.to_string(), Bytes::from(val.clone().unwrap()));
+                db.insert(key.to_string(), val.clone().unwrap().to_string());
                 tx.send("db_ready".to_string());
             }
         }
