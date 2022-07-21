@@ -7,3 +7,4 @@
 - [x] Rest API.
 
 - [ ] Better error handling (1/3).
+- [ ] Basic JS Frontend.
