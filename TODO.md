@@ -6,4 +6,4 @@
 
 - [x] Rest API.
 
-- [ ] Better error handling.
+- [ ] Better error handling (1/3).

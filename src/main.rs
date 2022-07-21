@@ -61,7 +61,12 @@ async fn create_client() -> redis::RedisResult<redis::Connection> {
 }
 
 async fn get_match(db: Db, tx: Sender<String>) -> redis::RedisResult<()> {
-    let mut con = create_client().await.unwrap();
+    let res_con = create_client().await;
+    if res_con.is_err() {
+        println!("Error: Client could not establish connection!");
+        return Ok(());
+    }
+    let mut con = res_con.unwrap();
     println!("Trying 'CONFIG SET KEA' to be able to subscribe to Keyspace events. Refer to: https://redis.io/docs/manual/keyspace-notifications/");
 
     let ev = redis::cmd("config")
@@ -99,7 +104,14 @@ async fn key_value_change_handler(
     tx: Sender<String>,
 ) -> redis::RedisResult<()> {
     let mut interval = time::interval(Duration::from_millis(20));
-    let mut con = create_client().await?;
+
+    let res_con = create_client().await;
+    if res_con.is_err() {
+        println!("Error: Client could not establish connection!");
+        return Ok(());
+    }
+    let mut con = res_con.unwrap();
+
     let mut start_keys: Vec<_> = vec![];
     con.scan()
         .and_then(|keys: redis::Iter<String>| Ok(start_keys = keys.collect()));
