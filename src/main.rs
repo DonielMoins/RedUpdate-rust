@@ -8,6 +8,7 @@ use tokio::sync::broadcast::{Receiver, Sender};
 use tokio::sync::{broadcast, Mutex};
 use tokio::{task, time};
 use warp::http::Error;
+use warp::hyper::Method;
 use warp::Filter;
 
 use std::collections::HashMap;
@@ -41,12 +42,36 @@ async fn main() {
 }
 
 async fn restful_redis(db: Db) -> Result<(), Error> {
-    // Match any request and return hello world!
-    let routes = warp::any().map(move || {
-        // let db = db.clone().blocking_lock().values().collect();
-        let json = serde_json::json!((&db.clone().try_lock().as_deref().unwrap()));
-        format!("{}", json.to_string())
-    });
+    let cors = warp::cors()
+        .allow_any_origin()
+        .allow_headers(vec![
+            "Access-Control-Allow-Headers",
+            "Access-Control-Request-Method",
+            "Access-Control-Request-Headers",
+            "Access-Control-Allow-Origin",
+            "Accept",
+            "X-Requested-With",
+            "Content-Type",
+            "Accept-Encoding",
+            "Accept-Language",
+            "User-Agent",
+            "Sec-Fetch-Mode",
+            "Referer",
+            "Origin",
+            "DNT",
+            "Host",
+            "Sec-Fetch-Dest",
+        ])
+        .allow_methods(vec!["POST", "GET"])
+        .build();
+
+    let routes = warp::any()
+        .map(move || {
+            // let db = db.clone().blocking_lock().values().collect();
+            let json = serde_json::json!((&db.clone().try_lock().as_deref().unwrap()));
+            format!("{}", json.to_string())
+        })
+        .with(cors);
 
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
     Ok(())
@@ -143,7 +168,7 @@ async fn print_db_loop(db: Db, mut rx: Receiver<String>) {
         interval.tick().await;
         if !rx.is_empty() && String::from(rx.recv().await.unwrap()).starts_with("db_ready") {
             let db = db.lock().await;
-            println!("---------------------------------------------\n{:#?}\n---------------------------------------------", db.iter());
+            println!("\n---------------------------------------------\n{:#?}\n---------------------------------------------", db.iter());
         }
     }
 }
